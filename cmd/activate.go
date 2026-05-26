@@ -24,6 +24,7 @@ var ticketSystem string
 var ticketNumber string
 var dryRun bool
 var validateOnly bool
+var resourceScope string
 
 var activateCmd = &cobra.Command{
 	Use:     "activate",
@@ -36,18 +37,21 @@ var activateResourceCmd = &cobra.Command{
 	Use:     "resource",
 	Aliases: []string{"r", "res", "resource", "resources", "sub", "subs", "subscriptions"},
 	Short:   "Sends a request to Azure PIM to activate the given resource (azure resources)",
+	PreRun: func(cmd *cobra.Command, args []string) {
+		validateResourceActivationSelector(cmd)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		token := pim.GetAccessToken(AzureClientInstance.ARMBaseURL, AzureClientInstance)
 		subjectId := pim.GetUserInfo(token).ObjectId
 
 		eligibleResourceAssignments := pim.GetEligibleResourceAssignments(token, AzureClientInstance)
-		resourceAssignment := utils.GetResourceAssignment(name, prefix, roleName, eligibleResourceAssignments)
-		scope, assignmentRequest := pim.CreateResourceAssignmentRequest(subjectId, resourceAssignment, duration, startDate, startTime, reason, ticketSystem, ticketNumber)
+		resourceAssignment := utils.GetResourceAssignmentWithScope(name, prefix, resourceScope, roleName, eligibleResourceAssignments)
+		scope, assignmentRequest := pim.CreateResourceAssignmentRequestWithScope(subjectId, resourceAssignment, resourceScope, duration, startDate, startTime, reason, ticketSystem, ticketNumber)
 
 		slog.Info(
 			"Requesting activation",
 			"role", resourceAssignment.Properties.ExpandedProperties.RoleDefinition.DisplayName,
-			"scope", resourceAssignment.Properties.ExpandedProperties.Scope.DisplayName,
+			"scope", scope,
 			"reason", reason,
 			"ticketNumber", ticketNumber,
 			"ticketSystem", ticketSystem,
@@ -72,10 +76,34 @@ var activateResourceCmd = &cobra.Command{
 		slog.Info(
 			"Request completed",
 			"role", resourceAssignment.Properties.ExpandedProperties.RoleDefinition.DisplayName,
-			"scope", resourceAssignment.Properties.ExpandedProperties.Scope.DisplayName,
+			"scope", scope,
 			"status", requestResponse.Properties.Status,
 		)
 	},
+}
+
+func exitFlagError(cmd *cobra.Command, message string) {
+	cmd.PrintErrln("Error:", message)
+	cmd.Usage() //nolint:errcheck
+	os.Exit(1)
+}
+
+func validateResourceActivationSelector(cmd *cobra.Command) {
+	if name != "" && prefix != "" {
+		exitFlagError(cmd, "if any flags in the group [name prefix] are set none of the others can be; [name prefix] were all set")
+	}
+	if name == "" && prefix == "" && resourceScope == "" {
+		exitFlagError(cmd, "at least one of the flags in the group [name prefix scope] is required")
+	}
+}
+
+func validateGovernanceRoleActivationSelector(cmd *cobra.Command) {
+	if name != "" && prefix != "" {
+		exitFlagError(cmd, "if any flags in the group [name prefix] are set none of the others can be; [name prefix] were all set")
+	}
+	if name == "" && prefix == "" {
+		exitFlagError(cmd, "at least one of the flags in the group [name prefix] is required")
+	}
 }
 
 func activateGovernanceRole(roleType string) {
@@ -128,6 +156,9 @@ var activateGroupCmd = &cobra.Command{
 	Use:     "group",
 	Aliases: []string{"g", "grp", "groups"},
 	Short:   "Sends a request to Azure PIM to activate the given group",
+	PreRun: func(cmd *cobra.Command, args []string) {
+		validateGovernanceRoleActivationSelector(cmd)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		activateGovernanceRole(pim.ROLE_TYPE_AAD_GROUPS)
 	},
@@ -137,6 +168,9 @@ var activateEntraRoleCmd = &cobra.Command{
 	Use:     "role",
 	Aliases: []string{"rl", "role", "roles"},
 	Short:   "Sends a request to Azure PIM to activate the given Entra role",
+	PreRun: func(cmd *cobra.Command, args []string) {
+		validateGovernanceRoleActivationSelector(cmd)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		activateGovernanceRole(pim.ROLE_TYPE_ENTRA_ROLES)
 	},
@@ -160,7 +194,5 @@ func init() {
 	activateCmd.PersistentFlags().StringVarP(&ticketNumber, "ticket-number", "T", "", "Ticket number for the activation")
 	activateCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Display the resource that would be activated, without requesting the activation")
 	activateCmd.PersistentFlags().BoolVarP(&validateOnly, "validate-only", "v", false, "Send the request to the validation endpoint of Azure PIM, without requesting the activation")
-
-	activateCmd.MarkFlagsOneRequired("name", "prefix")
-	activateCmd.MarkFlagsMutuallyExclusive("name", "prefix")
+	activateResourceCmd.Flags().StringVar(&resourceScope, "scope", "", "ARM scope to activate the resource role at, if different from the eligible assignment scope")
 }

@@ -95,6 +95,7 @@ func initConfig() {
 
 	bindFlags(rootCmd, vpr)
 	bindFlags(activateCmd, vpr)
+	bindFlags(activateResourceCmd, vpr)
 	bindFlags(listGroupCmd, vpr)
 	bindFlags(listEntraRoleCmd, vpr)
 	bindFlags(activateGroupCmd, vpr)

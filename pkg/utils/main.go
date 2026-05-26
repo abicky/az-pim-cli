@@ -56,12 +56,18 @@ func PrintEligibleGovernanceRoles(governanceRoleAssignments *pim.GovernanceRoleA
 }
 
 func GetResourceAssignment(name string, prefix string, role string, eligibleResourceAssignments *pim.ResourceAssignmentResponse) *pim.ResourceAssignment {
+	return GetResourceAssignmentWithScope(name, prefix, "", role, eligibleResourceAssignments)
+}
+
+func GetResourceAssignmentWithScope(name string, prefix string, scope string, role string, eligibleResourceAssignments *pim.ResourceAssignmentResponse) *pim.ResourceAssignment {
 	name = strings.ToLower(name)
 	prefix = strings.ToLower(prefix)
+	scope = strings.ToLower(pim.NormalizeResourceScope(scope))
 	role = strings.ToLower(role)
 	for _, eligibleResourceAssignment := range eligibleResourceAssignments.Value {
 		var match *pim.ResourceAssignment = nil
 		resourceName := strings.ToLower(eligibleResourceAssignment.Properties.ExpandedProperties.Scope.DisplayName)
+		resourceScope := strings.ToLower(pim.NormalizeResourceScope(eligibleResourceAssignment.Properties.ExpandedProperties.Scope.Id))
 
 		if len(prefix) != 0 {
 			if strings.HasPrefix(resourceName, prefix) {
@@ -69,6 +75,10 @@ func GetResourceAssignment(name string, prefix string, role string, eligibleReso
 			}
 		} else if len(name) != 0 {
 			if resourceName == name {
+				match = &eligibleResourceAssignment
+			}
+		} else if len(scope) != 0 {
+			if resourceScope == scope {
 				match = &eligibleResourceAssignment
 			}
 		}

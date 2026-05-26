@@ -29,6 +29,9 @@ func TestGetResourceAssignment(t *testing.T) {
 
 	var subprefix = GetResourceAssignment("", "azure res", "", pim.EligibleResourceAssignmentsDummyData)
 	assert.EqualValues(t, subprefix, &pim.EligibleResourceAssignmentsDummyData.Value[3], "resulting resource assignment does not match expected assignment")
+
+	var subscope = GetResourceAssignmentWithScope("", "", "/"+pim.TEST_DUMMY_SUBSCRIPTION_2_ID, "", pim.EligibleResourceAssignmentsDummyData)
+	assert.EqualValues(t, subscope, &pim.EligibleResourceAssignmentsDummyData.Value[2], "resulting resource assignment does not match expected assignment")
 }
 
 func TestGetGovernanceRoleAssignmentAADGroup(t *testing.T) {

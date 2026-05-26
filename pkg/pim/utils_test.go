@@ -25,3 +25,23 @@ func TestParseDateTime(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%sT13:37:00%s", currentDate, currentTZ), timeOnly, errMsg)
 	assert.Equal(t, fmt.Sprintf("2024-12-31T13:37:00%s", currentTZ), dateTime, errMsg)
 }
+
+func TestNormalizeResourceScope(t *testing.T) {
+	assert.Equal(t, "subscriptions/sub-1", NormalizeResourceScope("/subscriptions/sub-1/"))
+	assert.Equal(t, "subscriptions/sub-1/resourceGroups/rg-1", NormalizeResourceScope("subscriptions/sub-1/resourceGroups/rg-1"))
+}
+
+func TestCreateResourceAssignmentRequestUsesEligibleAssignmentScope(t *testing.T) {
+	resourceAssignment := &EligibleResourceAssignmentsDummyData.Value[0]
+	scope, _ := CreateResourceAssignmentRequest(TEST_DUMMY_PRINCIPAL_ID, resourceAssignment, 30, "", "", "test", "Test", "1337")
+
+	assert.Equal(t, TEST_DUMMY_SUBSCRIPTION_1_ID, scope)
+}
+
+func TestCreateResourceAssignmentRequestWithScopeOverridesEligibleAssignmentScope(t *testing.T) {
+	resourceAssignment := &EligibleResourceAssignmentsDummyData.Value[0]
+	activationScope := "/subscriptions/sub-1/resourceGroups/rg-1"
+	scope, _ := CreateResourceAssignmentRequestWithScope(TEST_DUMMY_PRINCIPAL_ID, resourceAssignment, activationScope, 30, "", "", "test", "Test", "1337")
+
+	assert.Equal(t, "subscriptions/sub-1/resourceGroups/rg-1", scope)
+}
